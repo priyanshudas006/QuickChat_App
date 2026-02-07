@@ -29,22 +29,26 @@ const LoginPage = () => {
       >
         <h2 className="font-medium text-2xl flex justify-between items-center">
           {currState}
-          {isDataSubmitted && (
+          {/* Only show the state toggle arrow if NOT on the Sign Up bio step */}
+          {!(currState === "Sign Up" && isDataSubmitted) && (
             <img
-              onClick={() => setIsDataSubmitted(false)}
               src={assets.arrow_icon}
               alt=""
               className="w-5 cursor-pointer"
+              onClick={() =>
+                setCurrState(currState === "Login" ? "Sign Up" : "Login")
+              }
             />
           )}
-          <img
-            src={assets.arrow_icon}
-            alt=""
-            className="w-5 cursor-pointer"
-            onClick={() =>
-              setCurrState(currState === "Login" ? "Sign Up" : "Login")
-            }
-          />
+          {/* Show a back arrow to return to Sign Up form from bio step */}
+          {currState === "Sign Up" && isDataSubmitted && (
+            <img
+              onClick={() => setIsDataSubmitted(false)}
+              src={assets.arrow_icon}
+              alt="Back"
+              className="w-5 cursor-pointer rotate-180"
+            />
+          )}
         </h2>
           {currState === "Sign Up" && !isDataSubmitted && (
             <input
@@ -124,7 +128,7 @@ const LoginPage = () => {
             </p>
           ) : (
             <p className="text-sm text-gray-600">
-              Create an account{" "}
+              Don't have an account?{" "}
               <span
                 onClick={() => {
                   setCurrState("Sign Up");
@@ -132,7 +136,7 @@ const LoginPage = () => {
                 }}
                 className="font-medium text-violet-500 cursor-pointer"
               >
-                Click here
+                Sign Up
               </span>
             </p>
           )}
