@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import assets from "../assets/chat-app-assets/assets";
+import { AuthConext } from "../Context/AuthContext";
 
 const LoginPage = () => {
   const [currState, setCurrState] = useState("Login"); // Only use "Login" or "Sign Up"
@@ -8,13 +9,21 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [bio, setBio] = useState("");
   const [isDataSubmitted, setIsDataSubmitted] = useState(false);
+
+  const { login } = useContext(AuthConext);
+
   const onSubmitHandler = (e) => {
     e.preventDefault();
     if (currState === "Sign Up" && !isDataSubmitted) {
       setIsDataSubmitted(true);
       return;
     }
-    // ...existing code...
+    // Ensure correct state and data for signup/login
+    if (currState === "Sign Up") {
+      login("signup", { fullName, email, password, bio });
+    } else {
+      login("login", { email, password });
+    }
   };
 
   return (

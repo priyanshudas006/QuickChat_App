@@ -5,9 +5,35 @@ import http from "http";
 import connectDB from "./lib/db.js";
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
+import { Server } from "socket.io";
 
 const app = express();
 const server = http.createServer(app);
+
+export const io = new Server(server, {
+    cors: {
+        origin: "*",
+    },
+})
+
+export const userSocketMap = {};
+
+io.on("connection", (socket)=>{
+    const userId = socket.handshake.query.userId;
+    console.log("New client connected with userId:", userId);
+
+    if(userId){
+        userSocketMap[userId] = socket.id;
+    }
+
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+    socket.on("disconnect", ()=>{
+        console.log("Client disconnected with userId:", userId);
+        delete userSocketMap[userId];
+        io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    })
+})
 
 app.use(express.json());
 app.use(cors());
