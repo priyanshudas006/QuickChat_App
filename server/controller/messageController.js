@@ -1,7 +1,7 @@
 import User from "../models/user.js";
 import Message from "../models/message.js";
 import cloudinary from "../lib/cloudinary.js";
-import { userSocketMap } from "../server.js";
+import { userSocketMap, io } from "../server.js";
 
 
 export const getUsersForSidebar = async (req, res) => {
@@ -57,7 +57,7 @@ export const getUsersForSidebar = async (req, res) => {
 // get all messages for selected user
 export const getMessages = async (req, res) => {
   try {
-    const { selectedUserId } = req.params.id;
+    const selectedUserId = req.params.id;
     const myId = req.user._id;
 
     const messages = await Message.find({
@@ -98,7 +98,11 @@ export const markMessagesAsSeen = async (req, res) => {
             message: "Message marked as seen"
         })  
     } catch (error) {
-        
+        console.log(error.message);
+        res.json({
+            success: false,
+            message: error.message
+        });
     }
 }
 
@@ -111,33 +115,68 @@ export const sendMessage = async (req, res) => {
 
       let imageUrl;
 
+      // ✅ Fixed: Properly handle image uploads with error handling
       if(image){
-        const uploadResuelt = await cloudinary.uploader.upload(image)
-        imageUrl = uploadResuelt.secure_url;
+        try {
+          console.log("📸 Starting image upload to Cloudinary...");
+          console.log("Image type:", typeof image, "Size:", image.length, "bytes");
+          
+          const uploadResult = await cloudinary.uploader.upload(image, {
+            resource_type: "auto",
+            folder: "quickchat_messages",
+            timeout: 30000 // ✅ 30 second timeout
+          });
+          imageUrl = uploadResult.secure_url;
+          console.log("✅ Image uploaded successfully:", imageUrl);
+        } catch (uploadError) {
+          console.error("❌ Cloudinary upload error:", uploadError.message);
+          console.error("Error code:", uploadError.http_code);
+          console.error("Error status:", uploadError.status);
+          return res.status(400).json({
+            success: false,
+            message: "Failed to upload image: " + uploadError.message
+          });
+        }
       }
 
       const newMessage = new Message({
         senderId,
         receiverId,
         text,
-        image: imageUrl
+        image: imageUrl || null
       })
 
-      //emits the new message to teh receiver's socket
-      const receiverSocketId = userSocketMap[receiverId];
+      // ✅ Fixed: Save message to database before emitting
+      await newMessage.save();
+      console.log("✅ Message saved to database:", newMessage._id);
 
+      // ✅ Emit to receiver with populated message data
+      const receiverSocketId = userSocketMap[receiverId];
       if(receiverSocketId){
+        console.log("📤 Emitting message to receiver socket:", receiverSocketId);
         io.to(receiverSocketId).emit("newMessage", newMessage);
+      } else {
+        console.log("⚠️  Receiver not online. Message saved to DB.");
       }
 
+      // ✅ Ensure newMessage is serialized properly
       res.json({
         success: true,
-        newMessage
+        newMessage: {
+          _id: newMessage._id,
+          senderId: newMessage.senderId,
+          receiverId: newMessage.receiverId,
+          text: newMessage.text,
+          image: newMessage.image,
+          createdAt: newMessage.createdAt,
+          seen: newMessage.seen
+        }
       })
 
-    } catch (error ) {
-      console.log(error.message);
-      res.json({
+    } catch (error) {
+      console.log("❌ SendMessage error:", error.message);
+      console.error("Full error:", error);
+      res.status(500).json({
         success: false,
         message: error.message
       })

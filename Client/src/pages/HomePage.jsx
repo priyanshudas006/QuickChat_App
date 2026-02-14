@@ -15,18 +15,24 @@ const HomePage = () => {
             : "md:grid-cols-2"
         }`}
       >
-        <Sidebar
-          selectedUser={selectedUser}
-          setSelectedUser={setSelectedUser}
-        />
+        <div className="overflow-hidden h-full">
+          <Sidebar
+            selectedUser={selectedUser}
+            setSelectedUser={setSelectedUser}
+          />
+        </div>
 
-        <ChatContainer
-          selectedUser={selectedUser}
-          setSelectedUser={setSelectedUser}
-        />
+        <div className="overflow-hidden h-full">
+          <ChatContainer
+            selectedUser={selectedUser}
+            setSelectedUser={setSelectedUser}
+          />
+        </div>
 
-        <RightSidebar selectedUser={selectedUser}
-        setSelectedUser={setSelectedUser}/>
+        <div className="overflow-hidden h-full">
+          <RightSidebar selectedUser={selectedUser}
+          setSelectedUser={setSelectedUser}/>
+        </div>
       </div>
     </div>
   );

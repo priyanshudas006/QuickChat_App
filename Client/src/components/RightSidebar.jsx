@@ -1,45 +1,51 @@
-import React from 'react'
-import assets, { imagesDummyData } from '../assets/chat-app-assets/assets'
+import React, { useContext } from "react";
+import assets from "../assets/chat-app-assets/assets";
+import { AuthConext } from "../Context/AuthContext";
 
-const RightSidebar = ({ selectedUser }) => {
-  if (!selectedUser) return null;
+const RightSidebar = ({ selectedUser, setSelectedUser }) => {
+  const { onlineUsers, logout } = useContext(AuthConext);
+
+  if (!selectedUser) {
+    return (
+      <div className="bg-[#8185B2]/10 h-full p-5 rounded-l-xl text-white max-md:hidden flex flex-col" />
+    );
+  }
+
+  const isOnline = onlineUsers.includes(selectedUser._id);
 
   return (
-    <div className={`bg-[#8185b2]/10 text-white w-full relative overflow-y-scroll ${selectedUser ? "max-md:hidden" : ""}`}>
-      <div className='pt-16 flex flex-col items-center gap-2 text-xs font-light mx-auto'>
+    <div className="bg-[#8185B2]/10 h-full p-5 rounded-l-xl text-white overflow-y-auto max-md:hidden flex flex-col">
+      {/* User Info */}
+      <div className="flex flex-col items-center gap-3 pt-5 pb-5 border-b border-gray-600">
         <img
           src={selectedUser.profilePic || assets.avatar_icon}
-          alt="Profile"
-          className="w-20 aspect-[1/1] rounded-full"
+          alt={selectedUser.fullName}
+          className="w-20 h-20 rounded-full object-cover"
         />
 
-        <h1 className="px-10 text-xl font-medium mx-auto flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500"></span>
-          {selectedUser.fullName}
-        </h1>
+        <div className="text-center">
+          <p className="text-lg font-medium">{selectedUser.fullName}</p>
+          <span className={`text-xs ${isOnline ? "text-green-400" : "text-gray-400"}`}>
+            {isOnline ? "Online" : "Offline"}
+          </span>
+        </div>
 
-        <p className="px-10 mx-auto">
-          {selectedUser.bio}
+        {selectedUser.bio && (
+          <p className="text-sm text-gray-400 text-center px-2">
+            {selectedUser.bio}
+          </p>
+        )}
+      </div>
+
+      {/* Media placeholder */}
+      <div className="mt-5">
+        <p className="text-sm text-gray-400 mb-3">Shared Media</p>
+        <p className="text-xs text-gray-500 text-center mt-8">
+          No media shared yet
         </p>
       </div>
-
-      <hr className='border-[#ffffff50] my-4' />
-
-      <div className='px-5 text-xs'>
-        <p>Media</p>
-        <div className='mt-2 max-h-[200px] overflow-y-scroll grid grid-cols-2 gap-4 opacity-80'>
-          {imagesDummyData.map((url, index)=>(
-            <div key={index} onClick={()=> window.open(url)} className='cursor-pointer rounded '>
-              <img src={url} alt="" className='h-full rounded-md' />
-            </div>
-          ))}
-        </div>
-      </div>
-      <button className='absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-400 to-violet-600 text-white border-none text-sm font-light py-2 px-20 rounded-full cursor-pointer'>
-        Logout
-      </button>
     </div>
   );
 };
 
-export default RightSidebar
+export default RightSidebar;

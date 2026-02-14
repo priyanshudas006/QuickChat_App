@@ -1,66 +1,269 @@
-import React, { useEffect, useRef } from "react";
-import assets, { messagesDummyData } from "../assets/chat-app-assets/assets";
+import React, { useContext, useEffect, useRef, useState } from "react";
+import assets from "../assets/chat-app-assets/assets";
 import { formatMessageTime } from "../lib/utils";
+import { AuthConext } from "../Context/AuthContext";
+import axios from "axios";
 
 const ChatContainer = ({ selectedUser, setSelectedUser }) => {
+  const { authUser, socket } = useContext(AuthConext);
 
-  const scrollEnd = useRef()
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [image, setImage] = useState(null);
 
-  useEffect(()=>{
-    if(scrollEnd.current){
-      scrollEnd.current.scrollIntoView({behavior: 'smooth'})
+  const scrollEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  /* Auto scroll */
+  useEffect(() => {
+    scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  /* Fetch messages when user changes */
+  const getMessages = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const { data } = await axios.get(`/api/messages/${selectedUser._id}`);
+      if (data.success) {
+        setMessages(data.messages);
+      }
+    } catch (error) {
+      console.error(error);
     }
-  },[])
+  };
 
-  return selectedUser ? (
-    <div className="h-full overflow-scroll relative backdrop-blur-lg">
-      {/* Header seection */}
-      <div className="flex items-center gap-2 py-3 mx-4 border-b border-stone-500 ">
-        <img src={assets.profile_martin} alt="" className="w-8 rounded-full" />
-        <p className="flex-1 text-lg text-white flex items-center gap-2">
-          Martin Johnson
-          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+  useEffect(() => {
+    getMessages();
+  }, [selectedUser]);
+
+  /* Listen for real-time messages with specific handler reference to avoid duplicates */
+  useEffect(() => {
+    if (!socket) return;
+
+    const handler = (newMessage) => {
+      if (
+        newMessage.senderId === selectedUser?._id ||
+        newMessage.receiverId === selectedUser?._id
+      ) {
+        setMessages((prev) => [...prev, newMessage]);
+      }
+    };
+
+    socket.on("newMessage", handler);
+
+    return () => socket.off("newMessage", handler); 
+  }, [socket, selectedUser]);
+
+  /* Send message */
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    if (!text && !image) return;
+
+    try {
+      // If image is selected, validate and read it first
+      if (image) {
+        // Validate image size (max 5MB)
+        const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+        if (image.size > MAX_IMAGE_SIZE) {
+          alert(`Image too large! Max size is 5MB. Your file is ${(image.size / 1024 / 1024).toFixed(2)}MB`);
+          setImage(null);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        const reader = new FileReader();
+        
+        // Create a promise to handle FileReader's async nature
+        const imageBase64 = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(image);
+        });
+
+        try {
+          console.log("Sending message with image (size:", (image.size / 1024).toFixed(2) + "KB)");
+          const { data } = await axios.post(
+            `/api/messages/send/${selectedUser._id}`,
+            { text, image: imageBase64 },
+            { timeout: 30000 }
+          );
+
+          if (data.success) {
+            console.log("Message sent successfully with image:", data.newMessage);
+            setMessages((prev) => [...prev, data.newMessage]);
+            setText("");
+            setImage(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          } else {
+            console.error("Failed to send message:", data.message);
+            alert("Failed to send message: " + data.message);
+          }
+        } catch (err) {
+          console.error("Error sending message with image:", err);
+          const errorMsg = err.response?.data?.message || err.message || "Network error";
+          alert("Error sending image: " + errorMsg);
+        }
+      } else {
+        try {
+          console.log("Sending text message...");
+          const { data } = await axios.post(
+            `/api/messages/send/${selectedUser._id}`,
+            { text }
+          );
+
+          if (data.success) {
+            console.log("Message sent successfully:", data.newMessage);
+            setMessages((prev) => [...prev, data.newMessage]);
+            setText("");
+          } else {
+            console.error("Failed to send message:", data.message);
+            alert("Failed to send message: " + data.message);
+          }
+        } catch (err) {
+          console.error("Error sending message:", err);
+          alert("Error sending message: " + (err.response?.data?.message || err.message));
+        }
+      }
+    } catch (error) {
+      console.error("Error in sendMessage:", error);
+      alert("An unexpected error occurred");
+    }
+  };
+
+  if (!selectedUser) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden h-full w-full">
+        <img src={assets.logo_icon} className="max-w-16" />
+        <p className="text-lg font-medium text-white">
+          Chat anytime, anywhere
         </p>
-        <img onClick={()=> setSelectedUser(null)} src={assets.arrow_icon} alt="" className="md:hidden max-w-7" />
-        <img src={assets.help_icon} alt="" className="max-md:hidden max-w-5" />
       </div>
-      {/* Chat section */}
-      <div className="flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6">
-        {messagesDummyData.map((msg, index)=>(<div key={index} className={`flex items-end gap-2 justify-end ${msg.senderId !== '680f50e4f10f3cd28382ecf9' && 'flex-row-reverse'}`}>
-          {msg.image ? (
-            <img src={msg.image} alt="" className="max-w-[230px] border border-gray-700 rounded-lg overflow-hidden mb-8"/>
-          ):(
-            <p className={`p-2 max-w-[200px] md:text-sm font-light rounded-lg mb-8 breake-all bg-violet-500/30 text-white ${msg.senderId === '680f50e4f10f3cd28382ecf9' ? 'rounded-br-none' : 'rounded-bl-none' }`}>{msg.text}</p>
-          )}
-          <div className="text-center text-xs">
-            <img src={msg.senderId === '680f50e4f10f3cd28382ecf9'? assets.avatar_icon : assets.profile_martin} alt="" className="rounded-full w-7" />
-            <p className="text-gray-500">{formatMessageTime(msg.createdAt)}</p>
-          </div>
-        </div>))}
-        <div ref={scrollEnd}></div>
+    );
+  }
+
+  return (
+    <div className="h-full relative backdrop-blur-lg flex flex-col">
+      {/* Header */}
+      <div className="flex items-center gap-2 py-3 px-4 border-b border-stone-500 flex-shrink-0">
+        <img
+          src={selectedUser.profilePic || assets.avatar_icon}
+          className="w-8 rounded-full"
+        />
+        <p className="flex-1 text-lg text-white">
+          {selectedUser.fullName}
+        </p>
+        <img
+          onClick={() => setSelectedUser(null)}
+          src={assets.arrow_icon}
+          className="md:hidden max-w-7 cursor-pointer"
+        />
       </div>
-      {/* bottom section */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3">
-            <div className='flex-1 flex items-center bg-violet-500/15 px-4 py-2 rounded-full gap-2'>
-              <input
-                type="text"
-                placeholder="Send a message"
-                className="flex-1 text-sm bg-transparent border-none outline-none text-white placeholder-gray-400"
-              />
-              <input type="file" id="image" accept="image/png, image/jpeg" hidden />
-              <label htmlFor="image" className="flex items-center justify-center">
-                <img src={assets.gallery_icon} alt="" className="w-5 h-5 mr-2 cursor-pointer" />
-              </label>
-              <button type="submit" className="flex items-center justify-center w-9 h-9 rounded-full bg-purple-500 hover:bg-purple-600 transition-colors">
-                <img src={assets.send_button} alt="Send" className="w-5 h-5" />
-              </button>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 min-h-0">
+        {messages.map((msg) => {
+          const isMe = msg.senderId === authUser._id;
+
+          return (
+            <div
+              key={msg._id}
+              className={`flex items-end gap-2 mb-4 ${
+                isMe ? "justify-end" : "justify-start"
+              }`}
+            >
+              {!isMe && (
+                <img
+                  src={selectedUser.profilePic || assets.avatar_icon}
+                  className="w-7 rounded-full"
+                />
+              )}
+
+              {msg.image ? (
+                <img
+                  src={msg.image}
+                  className="max-w-[230px] rounded-lg border"
+                />
+              ) : (
+                <p
+                  className={`p-2 max-w-[200px] text-white text-sm rounded-lg ${
+                    isMe
+                      ? "bg-violet-500/40 rounded-br-none"
+                      : "bg-gray-500/30 rounded-bl-none"
+                  }`}
+                >
+                  {msg.text}
+                </p>
+              )}
+
+              <span className="text-xs text-gray-400">
+                {formatMessageTime(msg.createdAt)}
+              </span>
             </div>
+          );
+        })}
+        <div ref={scrollEndRef} />
       </div>
+
+      {/* Input */}
+      <form
+        onSubmit={sendMessage}
+        className="flex-shrink-0 flex flex-col gap-3 p-3 border-t border-stone-500"
+      >
+        {/* Image Preview */}
+        {image && (
+          <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-violet-500">
+            <img
+              src={URL.createObjectURL(image)}
+              alt="preview"
+              className="w-full h-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setImage(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+              className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        <div className="flex-1 flex items-center bg-violet-500/15 px-4 py-2 rounded-full gap-2">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Send a message"
+            className="flex-1 bg-transparent outline-none text-white"
+          />
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            id="image"
+            accept="image/png, image/jpeg"
+            onChange={(e) => setImage(e.target.files[0])}
+          />
+
+          <label htmlFor="image">
+            <img
+              src={assets.gallery_icon}
+              className="w-5 cursor-pointer"
+            />
+          </label>
+
+          <button type="submit">
+            <img
+              src={assets.send_button}
+              className="w-5 cursor-pointer"
+            />
+          </button>
+        </div>
+      </form>
     </div>
-  ): (<div className="flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden">
-    <img src={assets.logo_icon} className="max-w-16" />
-    <p className="text-lg font-medium text-white ">Chat anytime, anywhere</p>
-  </div>)
+  );
 };
 
-export default ChatContainer;
+export default ChatContainer; 
