@@ -1,7 +1,7 @@
 import User from "../models/user.js";
 import Message from "../models/message.js";
 import cloudinary from "../lib/cloudinary.js";
-import { userSocketMap, io } from "../server.js";
+import { io, getUserSocketIds } from "../server.js";
 
 export const getUsersForSidebar = async (req, res) => {
   try {
@@ -131,15 +131,13 @@ export const sendMessage = async (req, res) => {
       seen: newMessage.seen,
     };
 
-    const receiverSocketId = userSocketMap[receiverId];
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", messagePayload);
-    }
+    const receiverSocketIds = getUserSocketIds(receiverId);
+    const senderSocketIds = getUserSocketIds(senderId);
+    const targetSocketIds = new Set([...receiverSocketIds, ...senderSocketIds]);
 
-    const senderSocketId = userSocketMap[String(senderId)];
-    if (senderSocketId && senderSocketId !== receiverSocketId) {
-      io.to(senderSocketId).emit("newMessage", messagePayload);
-    }
+    targetSocketIds.forEach((socketId) => {
+      io.to(socketId).emit("newMessage", messagePayload);
+    });
 
     res.json({
       success: true,

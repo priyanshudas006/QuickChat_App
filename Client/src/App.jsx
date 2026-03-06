@@ -9,7 +9,7 @@ import { AuthConext } from './Context/AuthContext'
 const App = () => {
   const {authUser} = useContext(AuthConext);
   return (
-    <div className='bg-[url(./assets/chat-app-assets/bgImage.svg)] bg-cover bg-center min-h-screen w-full'>
+    <div className='bg-[url(./assets/chat-app-assets/bgImage.svg)] bg-cover bg-center h-[100dvh] w-full overflow-hidden'>
       <Toaster/>
       <Routes>
         <Route path='/' element={authUser ? <HomePage/> : <Navigate to="/login" />} /> 

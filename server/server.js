@@ -18,20 +18,38 @@ export const io = new Server(server, {
 
 export const userSocketMap = {};
 
+const getConnectedUserIds = () =>
+  Object.keys(userSocketMap).filter(
+    (userId) => userSocketMap[userId] && userSocketMap[userId].size > 0,
+  );
+
+export const getUserSocketIds = (userId) => {
+  const key = String(userId || "");
+  return userSocketMap[key] ? Array.from(userSocketMap[key]) : [];
+};
+
 io.on("connection", (socket)=>{
-    const userId = socket.handshake.query.userId;
+    const userId = String(socket.handshake.query.userId || "");
     console.log("New client connected with userId:", userId);
 
     if(userId){
-        userSocketMap[userId] = socket.id;
+        if (!userSocketMap[userId]) {
+            userSocketMap[userId] = new Set();
+        }
+        userSocketMap[userId].add(socket.id);
     }
 
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    io.emit("getOnlineUsers", getConnectedUserIds());
 
     socket.on("disconnect", ()=>{
         console.log("Client disconnected with userId:", userId);
-        delete userSocketMap[userId];
-        io.emit("getOnlineUsers", Object.keys(userSocketMap));
+        if (userSocketMap[userId]) {
+            userSocketMap[userId].delete(socket.id);
+            if (userSocketMap[userId].size === 0) {
+                delete userSocketMap[userId];
+            }
+        }
+        io.emit("getOnlineUsers", getConnectedUserIds());
     })
 })
 

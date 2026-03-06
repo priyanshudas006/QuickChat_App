@@ -149,8 +149,8 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
 
   if (!selectedUser) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden h-full w-full">
-        <img src={assets.logo_icon} className="max-w-16" />
+      <div className="flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden h-full w-full px-4">
+        <img src={assets.logo_icon} className="max-w-14 md:max-w-16" />
         <p className="text-lg font-medium text-white">
           Chat anytime, anywhere
         </p>
@@ -159,7 +159,7 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
   }
 
   return (
-    <div className="h-full relative backdrop-blur-lg flex flex-col">
+    <div className="h-full min-h-0 relative backdrop-blur-lg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 py-3 px-4 border-b border-stone-500 flex-shrink-0">
         <img
@@ -178,6 +178,12 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 min-h-0">
+        {messages.length === 0 && (
+          <div className="h-full flex items-start justify-center pt-7 text-sm text-gray-300">
+            Start a conversation
+          </div>
+        )}
+
         {messages.map((msg) => {
           const isMe = String(msg.senderId) === String(authUser._id);
 
@@ -224,7 +230,7 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
       {/* Input */}
       <form
         onSubmit={sendMessage}
-        className="flex-shrink-0 flex flex-col gap-3 p-3 border-t border-stone-500"
+        className="mt-auto flex-shrink-0 flex flex-col gap-2 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-stone-500"
       >
         {/* Image Preview */}
         {image && (
@@ -263,17 +269,17 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
             onChange={(e) => setImage(e.target.files[0])}
           />
 
-          <label htmlFor="image">
+          <label htmlFor="image" className="shrink-0">
             <img
               src={assets.gallery_icon}
-              className="w-5 cursor-pointer"
+              className="w-5 h-5 md:w-5 md:h-5 cursor-pointer"
             />
           </label>
 
-          <button type="submit">
+          <button type="submit" className="shrink-0">
             <img
               src={assets.send_button}
-              className="w-5 cursor-pointer"
+              className="w-5 h-5 md:w-5 md:h-5 cursor-pointer"
             />
           </button>
         </div>

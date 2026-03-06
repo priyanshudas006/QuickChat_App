@@ -59,12 +59,12 @@ const Sidebar = ({ selectedUser, setSelectedUser }) => {
 
   return (
     <div
-      className={`bg-[#8185B2]/10 h-full p-5 rounded-r-xl overflow-y-auto text-white flex flex-col ${
+      className={`bg-[#8185B2]/10 h-full p-4 md:p-5 rounded-r-xl overflow-y-auto text-white flex flex-col ${
         selectedUser ? "max-md:hidden" : ""
       }`}
     >
       {/* Header */}
-      <div className="pb-5">
+      <div className="pb-4 md:pb-5">
         <div className="flex justify-between items-center">
           <img src={assets.logo} alt="logo" className="max-w-40" />
 
@@ -110,7 +110,7 @@ const Sidebar = ({ selectedUser, setSelectedUser }) => {
       </div>
 
       {/* Users List */}
-      <div className="flex flex-col gap-1 min-h-0 overflow-y-auto flex-1">
+      <div className="flex flex-col gap-1 min-h-0 overflow-y-auto md:flex-1 pb-1 md:pb-2">
         {filteredUsers.map((user) => {
           const isOnline = onlineUsers.includes(user._id);
           const unseenCount = unseenMessages[user._id];
@@ -153,6 +153,12 @@ const Sidebar = ({ selectedUser, setSelectedUser }) => {
             </div>
           );
         })}
+
+        {filteredUsers.length === 0 && (
+          <p className="text-sm text-gray-300 text-center mt-6">
+            No chats found
+          </p>
+        )}
       </div>
     </div>
   );
