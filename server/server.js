@@ -10,18 +10,35 @@ import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = [
+const configuredOrigins = [
     process.env.FRONTEND_URL,
     process.env.CLIENT_URL,
     "http://localhost:5174",
     "http://localhost:5173",
     "https://quick-chat-app-beta-lake.vercel.app",
-].filter(Boolean);
+]
+  .filter(Boolean)
+  .map((origin) => origin.replace(/\/$/, ""));
+
+const isAllowedOrigin = (origin) => {
+    if (!origin) return true;
+
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    if (configuredOrigins.includes(normalizedOrigin)) return true;
+
+    try {
+        const { hostname } = new URL(normalizedOrigin);
+        if (hostname.endsWith(".vercel.app")) return true;
+    } catch {
+        return false;
+    }
+
+    return false;
+};
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // Allow non-browser requests (no Origin header) and configured origins
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (isAllowedOrigin(origin)) {
             return callback(null, true);
         }
         return callback(new Error("Not allowed by CORS"));
@@ -33,7 +50,10 @@ const corsOptions = {
 
 export const io = new Server(server, {
     cors: {
-        origin: allowedOrigins.length ? allowedOrigins : "*",
+        origin: (origin, callback) => {
+            if (isAllowedOrigin(origin)) return callback(null, true);
+            return callback(new Error("Not allowed by CORS"));
+        },
     },
 })
 
