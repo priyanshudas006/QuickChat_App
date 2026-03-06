@@ -49,10 +49,12 @@ export const AuthProvider = ({ children }) => {
     if (!userId || socket?.connected) return;
     const newSocket = io(backendUrl, {
       autoConnect: false,
-      transports: ["websocket"],
       query: {
         userId: userId,
       },
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     newSocket.on("getOnlineUsers", (userIds) => {
