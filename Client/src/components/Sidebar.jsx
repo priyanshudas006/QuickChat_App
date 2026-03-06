@@ -6,7 +6,7 @@ import axios from "axios";
 
 const Sidebar = ({ selectedUser, setSelectedUser }) => {
   const navigate = useNavigate();
-  const { onlineUsers, logout } = useContext(AuthConext);
+  const { onlineUsers, logout, socket, authUser } = useContext(AuthConext);
 
   const [users, setUsers] = useState([]);
   const [unseenMessages, setUnseenMessages] = useState({});
@@ -28,6 +28,30 @@ const Sidebar = ({ selectedUser, setSelectedUser }) => {
   useEffect(() => {
     getUsers();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingMessage = (newMessage) => {
+      const senderId = String(newMessage?.senderId || "");
+      const receiverId = String(newMessage?.receiverId || "");
+      const myId = String(authUser?._id || "");
+      const openedUserId = String(selectedUser?._id || "");
+
+      const isIncoming = receiverId === myId;
+      if (!isIncoming) return;
+
+      if (senderId === openedUserId) return;
+
+      setUnseenMessages((prev) => ({
+        ...prev,
+        [senderId]: (prev[senderId] || 0) + 1,
+      }));
+    };
+
+    socket.on("newMessage", handleIncomingMessage);
+    return () => socket.off("newMessage", handleIncomingMessage);
+  }, [socket, authUser?._id, selectedUser?._id]);
 
   const filteredUsers = users.filter((user) =>
     user.fullName.toLowerCase().includes(search.toLowerCase())
@@ -94,7 +118,10 @@ const Sidebar = ({ selectedUser, setSelectedUser }) => {
           return (
             <div
               key={user._id}
-              onClick={() => setSelectedUser(user)}
+              onClick={() => {
+                setSelectedUser(user);
+                setUnseenMessages((prev) => ({ ...prev, [user._id]: 0 }));
+              }}
               className={`relative flex items-center gap-3 p-2 pl-4 rounded cursor-pointer ${
                 selectedUser?._id === user._id
                   ? "bg-[#282142]/60"

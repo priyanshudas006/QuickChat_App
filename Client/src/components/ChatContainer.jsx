@@ -14,6 +14,15 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
   const scrollEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const appendUniqueMessage = (message) => {
+    setMessages((prev) => {
+      if (prev.some((item) => String(item._id) === String(message?._id))) {
+        return prev;
+      }
+      return [...prev, message];
+    });
+  };
+
   /* Auto scroll */
   useEffect(() => {
     scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,18 +51,25 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
     if (!socket) return;
 
     const handler = (newMessage) => {
-      if (
-        newMessage.senderId === selectedUser?._id ||
-        newMessage.receiverId === selectedUser?._id
-      ) {
-        setMessages((prev) => [...prev, newMessage]);
+      const selectedId = String(selectedUser?._id || "");
+      const senderId = String(newMessage?.senderId || "");
+      const receiverId = String(newMessage?.receiverId || "");
+      const myId = String(authUser?._id || "");
+
+      const isIncomingForOpenChat =
+        senderId === selectedId && receiverId === myId;
+      const isOutgoingForOpenChat =
+        senderId === myId && receiverId === selectedId;
+
+      if (isIncomingForOpenChat || isOutgoingForOpenChat) {
+        appendUniqueMessage(newMessage);
       }
     };
 
     socket.on("newMessage", handler);
 
     return () => socket.off("newMessage", handler); 
-  }, [socket, selectedUser]);
+  }, [socket, selectedUser, authUser?._id]);
 
   /* Send message */
   const sendMessage = async (e) => {
@@ -91,7 +107,7 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
 
           if (data.success) {
             console.log("Message sent successfully with image:", data.newMessage);
-            setMessages((prev) => [...prev, data.newMessage]);
+            appendUniqueMessage(data.newMessage);
             setText("");
             setImage(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
@@ -114,7 +130,7 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
 
           if (data.success) {
             console.log("Message sent successfully:", data.newMessage);
-            setMessages((prev) => [...prev, data.newMessage]);
+            appendUniqueMessage(data.newMessage);
             setText("");
           } else {
             console.error("Failed to send message:", data.message);
@@ -163,7 +179,7 @@ const ChatContainer = ({ selectedUser, setSelectedUser }) => {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 min-h-0">
         {messages.map((msg) => {
-          const isMe = msg.senderId === authUser._id;
+          const isMe = String(msg.senderId) === String(authUser._id);
 
           return (
             <div
