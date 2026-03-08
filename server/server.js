@@ -69,6 +69,12 @@ export const getUserSocketIds = (userId) => {
   return userSocketMap[key] ? Array.from(userSocketMap[key]) : [];
 };
 
+const emitToUser = (userId, event, payload) => {
+  getUserSocketIds(userId).forEach((socketId) => {
+    io.to(socketId).emit(event, payload);
+  });
+};
+
 io.on("connection", (socket)=>{
     const userId = String(socket.handshake.query.userId || "");
     console.log("New client connected with userId:", userId);
@@ -81,6 +87,31 @@ io.on("connection", (socket)=>{
     }
 
     io.emit("getOnlineUsers", getConnectedUserIds());
+
+    socket.on("call:offer", ({ to, offer, caller }) => {
+        if (!to || !offer || !userId) return;
+        emitToUser(to, "call:offer", { from: userId, offer, caller });
+    });
+
+    socket.on("call:answer", ({ to, answer }) => {
+        if (!to || !answer || !userId) return;
+        emitToUser(to, "call:answer", { from: userId, answer });
+    });
+
+    socket.on("call:ice-candidate", ({ to, candidate }) => {
+        if (!to || !candidate || !userId) return;
+        emitToUser(to, "call:ice-candidate", { from: userId, candidate });
+    });
+
+    socket.on("call:reject", ({ to }) => {
+        if (!to || !userId) return;
+        emitToUser(to, "call:reject", { from: userId });
+    });
+
+    socket.on("call:end", ({ to }) => {
+        if (!to || !userId) return;
+        emitToUser(to, "call:end", { from: userId });
+    });
 
     socket.on("disconnect", ()=>{
         console.log("Client disconnected with userId:", userId);

@@ -90,11 +90,54 @@ export const markMessagesAsSeen = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
   try {
-    const { text, image } = req.body;
+    const { text, image, audio } = req.body;
     const receiverId = req.params.id;
     const senderId = req.user._id;
+    const normalizedText = typeof text === "string" ? text.trim() : "";
+
+    if (!normalizedText && !image && !audio) {
+      return res.status(400).json({
+        success: false,
+        message: "Message content is required",
+      });
+    }
+
+    if (normalizedText.length > 2000) {
+      return res.status(400).json({
+        success: false,
+        message: "Message is too long",
+      });
+    }
+
+    // Protect against rapid duplicate submissions (e.g. multi-click on send).
+    const dedupeWindowMs = 3000;
+    const recentDuplicate = await Message.findOne({
+      senderId,
+      receiverId,
+      text: normalizedText || "",
+      image: image ? { $ne: null } : null,
+      audio: audio ? { $ne: null } : null,
+      createdAt: { $gte: new Date(Date.now() - dedupeWindowMs) },
+    }).sort({ createdAt: -1 });
+
+    if (recentDuplicate) {
+      return res.json({
+        success: true,
+        newMessage: {
+          _id: recentDuplicate._id,
+          senderId: recentDuplicate.senderId?.toString?.() || recentDuplicate.senderId,
+          receiverId: recentDuplicate.receiverId?.toString?.() || recentDuplicate.receiverId,
+          text: recentDuplicate.text,
+          image: recentDuplicate.image,
+          audio: recentDuplicate.audio,
+          createdAt: recentDuplicate.createdAt,
+          seen: recentDuplicate.seen,
+        },
+      });
+    }
 
     let imageUrl;
+    let audioUrl;
 
     if (image) {
       try {
@@ -112,11 +155,28 @@ export const sendMessage = async (req, res) => {
       }
     }
 
+    if (audio) {
+      try {
+        const uploadResult = await cloudinary.uploader.upload(audio, {
+          resource_type: "auto",
+          folder: "quickchat_voice_messages",
+          timeout: 30000,
+        });
+        audioUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        return res.status(400).json({
+          success: false,
+          message: "Failed to upload audio: " + uploadError.message,
+        });
+      }
+    }
+
     const newMessage = new Message({
       senderId,
       receiverId,
-      text,
+      text: normalizedText,
       image: imageUrl || null,
+      audio: audioUrl || null,
     });
 
     await newMessage.save();
@@ -127,6 +187,7 @@ export const sendMessage = async (req, res) => {
       receiverId: newMessage.receiverId?.toString?.() || newMessage.receiverId,
       text: newMessage.text,
       image: newMessage.image,
+      audio: newMessage.audio,
       createdAt: newMessage.createdAt,
       seen: newMessage.seen,
     };
